@@ -54,6 +54,26 @@ Sunucu varsayılan olarak `http://localhost:3000` adresinde çalışır.
 
 ## Örnek kullanım (curl)
 
+# Supabase Auth API
+
+Node.js ile geliştirilmiş, Supabase kullanarak kullanıcı kayıt/giriş ve profil yönetimi sağlayan
+bir REST API.
+
+## Özellikler
+- Kullanıcı kayıt / giriş (Supabase Auth)
+- Profil yönetimi endpoint'leri
+- Ortam değişkenleri ile yapılandırma (.env)
+
+## Kurulum
+\`\`\`bash
+npm install
+cp .env.example .env   # kendi Supabase URL ve key değerlerini gir
+npm start
+\`\`\`
+
+## Test
+Thunder Client / Postman ile endpoint testleri yapılabilir.
+
 **Kayıt:**
 ```bash
 curl -X POST http://localhost:3000/api/auth/register \
