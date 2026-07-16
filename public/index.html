@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auth Console — supabase-auth-api</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #12161c;
+    --line: #232a33;
+    --text: #d7dee6;
+    --dim: #6b7885;
+    --accent: #4fd1a5;
+    --accent-dim: #2b5245;
+    --error: #ef6f6c;
+    --mono: 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 20px 80px;
+  }
+
+  .topbar {
+    width: 100%;
+    max-width: 720px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 40px;
+  }
+
+  .brand {
+    font-family: var(--mono);
+    font-size: 15px;
+    letter-spacing: 0.02em;
+    color: var(--text);
+  }
+  .brand span { color: var(--accent); }
+
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--dim);
+  }
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--dim);
+    transition: background .2s;
+  }
+  .dot.up { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .dot.down { background: var(--error); box-shadow: 0 0 8px var(--error); }
+
+  .wrap {
+    width: 100%;
+    max-width: 720px;
+    display: grid;
+    gap: 20px;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 24px 26px;
+  }
+
+  .card h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    color: var(--dim);
+    margin: 0 0 18px;
+    font-family: var(--mono);
+  }
+
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .row > * { flex: 1; min-width: 160px; }
+
+  label {
+    display: block;
+    font-size: 12px;
+    color: var(--dim);
+    margin-bottom: 6px;
+    font-family: var(--mono);
+  }
+
+  input {
+    width: 100%;
+    background: #0a0d12;
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: var(--sans);
+    margin-bottom: 14px;
+    transition: border-color .15s;
+  }
+  input:focus {
+    outline: none;
+    border-color: var(--accent-dim);
+  }
+
+  .actions { display: flex; gap: 10px; margin-top: 4px; }
+
+  button {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 18px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    transition: all .15s;
+  }
+  button:hover { border-color: var(--dim); }
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #06120d;
+  }
+  button.primary:hover { filter: brightness(1.08); }
+  button.ghost { color: var(--dim); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+
+  .msg {
+    margin-top: 14px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    display: none;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .msg.ok {
+    display: block;
+    background: rgba(79,209,165,0.08);
+    color: var(--accent);
+    border: 1px solid var(--accent-dim);
+  }
+  .msg.err {
+    display: block;
+    background: rgba(239,111,108,0.08);
+    color: var(--error);
+    border: 1px solid rgba(239,111,108,0.3);
+  }
+
+  .session-card { border-color: var(--accent-dim); }
+  .kv { font-family: var(--mono); font-size: 13px; }
+  .kv div { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px dashed var(--line); }
+  .kv div:last-child { border-bottom: none; }
+  .kv .k { color: var(--dim); }
+  .kv .v { color: var(--text); max-width: 60%; text-align: right; word-break: break-all; }
+
+  .hidden { display: none !important; }
+
+  .token-preview {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--dim);
+    margin-top: 10px;
+    word-break: break-all;
+    line-height: 1.5;
+  }
+
+  .footer-note {
+    max-width: 720px;
+    width: 100%;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 11.5px;
+    margin-top: 8px;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand">auth<span>_</span>console</div>
+    <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">bağlanıyor...</span></div>
+  </div>
+
+  <div class="wrap">
+
+    <!-- SESSION / PROFILE CARD (shown when logged in) -->
+    <div class="card session-card hidden" id="sessionCard">
+      <h2>oturum açık</h2>
+      <div class="kv" id="profileKv"></div>
+      <div class="actions" style="margin-top:16px;">
+        <button id="refreshProfileBtn">profili yenile</button>
+        <button class="ghost" id="logoutBtn">çıkış yap</button>
+      </div>
+      <div class="msg" id="sessionMsg"></div>
+    </div>
+
+    <!-- REGISTER -->
+    <div class="card">
+      <h2>kayıt ol</h2>
+      <div class="row">
+        <div>
+          <label>ad soyad</label>
+          <input type="text" id="regName" placeholder="Ege Öğütücü">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>e-posta</label>
+          <input type="email" id="regEmail" placeholder="ornek@mail.com">
+        </div>
+        <div>
+          <label>şifre</label>
+          <input type="password" id="regPassword" placeholder="en az 6 karakter">
+        </div>
+      </div>
+      <div class="actions">
+        <button class="primary" id="registerBtn">kayıt ol</button>
+      </div>
+      <div class="msg" id="registerMsg"></div>
+    </div>
+
+    <!-- LOGIN -->
+    <div class="card">
+      <h2>giriş yap</h2>
+      <div class="row">
+        <div>
+          <label>e-posta</label>
+          <input type="email" id="loginEmail" placeholder="ornek@mail.com">
+        </div>
+        <div>
+          <label>şifre</label>
+          <input type="password" id="loginPassword" placeholder="şifreniz">
+        </div>
+      </div>
+      <div class="actions">
+        <button class="primary" id="loginBtn">giriş yap</button>
+      </div>
+      <div class="msg" id="loginMsg"></div>
+    </div>
+
+  </div>
+
+  <div class="footer-note">
+    API taban adresi: <span id="baseUrlLabel">http://localhost:3000</span> — sunucunun çalıştığından emin ol (<code>npm run dev</code>)
+  </div>
+
+<script>
+  const BASE_URL = 'http://localhost:3000';
+  document.getElementById('baseUrlLabel').textContent = BASE_URL;
+
+  const $ = (id) => document.getElementById(id);
+  const TOKEN_KEY = 'auth_console_access_token';
+
+  function showMsg(el, text, ok) {
+    el.textContent = text;
+    el.className = 'msg ' + (ok ? 'ok' : 'err');
+  }
+  function clearMsg(el) {
+    el.textContent = '';
+    el.className = 'msg';
+  }
+
+  function getToken() {
+    return sessionStorage.getItem(TOKEN_KEY);
+  }
+  function setToken(t) {
+    if (t) sessionStorage.setItem(TOKEN_KEY, t);
+    else sessionStorage.removeItem(TOKEN_KEY);
+  }
+
+  async function checkHealth() {
+    const dot = $('statusDot');
+    const text = $('statusText');
+    try {
+      const res = await fetch(BASE_URL + '/api');
+      if (res.ok) {
+        dot.className = 'dot up';
+        text.textContent = 'API çalışıyor';
+      } else {
+        throw new Error();
+      }
+    } catch (e) {
+      dot.className = 'dot down';
+      text.textContent = 'API\'ye ulaşılamıyor';
+    }
+  }
+
+  async function registerUser() {
+    const btn = $('registerBtn');
+    const msg = $('registerMsg');
+    clearMsg(msg);
+
+    const full_name = $('regName').value.trim();
+    const email = $('regEmail').value.trim();
+    const password = $('regPassword').value;
+
+    if (!email || !password) {
+      showMsg(msg, 'E-posta ve şifre zorunlu.', false);
+      return;
+    }
+
+    btn.disabled = true;
+    try {
+      const res = await fetch(BASE_URL + '/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, full_name })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        showMsg(msg, data.error || 'Kayıt başarısız.', false);
+        return;
+      }
+
+      if (data.session && data.session.access_token) {
+        setToken(data.session.access_token);
+        showMsg(msg, 'Kayıt başarılı, giriş yapıldı.', true);
+        await loadProfile();
+      } else {
+        showMsg(msg, data.message || 'Kayıt başarılı. E-postanı doğrulaman gerekebilir.', true);
+      }
+    } catch (e) {
+      showMsg(msg, 'Sunucuya ulaşılamadı: ' + e.message, false);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function loginUser() {
+    const btn = $('loginBtn');
+    const msg = $('loginMsg');
+    clearMsg(msg);
+
+    const email = $('loginEmail').value.trim();
+    const password = $('loginPassword').value;
+
+    if (!email || !password) {
+      showMsg(msg, 'E-posta ve şifre zorunlu.', false);
+      return;
+    }
+
+    btn.disabled = true;
+    try {
+      const res = await fetch(BASE_URL + '/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        showMsg(msg, data.error || 'Giriş başarısız.', false);
+        return;
+      }
+
+      setToken(data.session.access_token);
+      showMsg(msg, 'Giriş başarılı.', true);
+      $('loginPassword').value = '';
+      await loadProfile();
+    } catch (e) {
+      showMsg(msg, 'Sunucuya ulaşılamadı: ' + e.message, false);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function loadProfile() {
+    const token = getToken();
+    const sessionCard = $('sessionCard');
+    const sessionMsg = $('sessionMsg');
+    clearMsg(sessionMsg);
+
+    if (!token) {
+      sessionCard.classList.add('hidden');
+      return;
+    }
+
+    try {
+      const res = await fetch(BASE_URL + '/api/users/me', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setToken(null);
+        sessionCard.classList.add('hidden');
+        showMsg($('loginMsg'), data.error || 'Oturum süresi dolmuş, tekrar giriş yap.', false);
+        return;
+      }
+
+      const u = data.user;
+      const kv = $('profileKv');
+      kv.innerHTML = `
+        <div><span class="k">id</span><span class="v">${u.id}</span></div>
+        <div><span class="k">e-posta</span><span class="v">${u.email || '-'}</span></div>
+        <div><span class="k">ad soyad</span><span class="v">${u.full_name || '-'}</span></div>
+        <div><span class="k">kayıt tarihi</span><span class="v">${u.created_at ? new Date(u.created_at).toLocaleString('tr-TR') : '-'}</span></div>
+      `;
+      sessionCard.classList.remove('hidden');
+    } catch (e) {
+      showMsg(sessionMsg, 'Profil alınamadı: ' + e.message, false);
+    }
+  }
+
+  async function logoutUser() {
+    const token = getToken();
+    const sessionMsg = $('sessionMsg');
+    try {
+      if (token) {
+        await fetch(BASE_URL + '/api/auth/logout', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+      }
+    } catch (e) {
+      // sessiz geç, yerel oturumu yine de temizle
+    }
+    setToken(null);
+    $('sessionCard').classList.add('hidden');
+    clearMsg(sessionMsg);
+  }
+
+  $('registerBtn').addEventListener('click', registerUser);
+  $('loginBtn').addEventListener('click', loginUser);
+  $('logoutBtn').addEventListener('click', logoutUser);
+  $('refreshProfileBtn').addEventListener('click', loadProfile);
+
+  [ $('regPassword'), $('loginPassword') ].forEach(el => {
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        if (el.id === 'regPassword') registerUser();
+        else loginUser();
+      }
+    });
+  });
+
+  checkHealth();
+  loadProfile();
+</script>
+</body>
+</html>
